@@ -10,4 +10,7 @@ function GetBestMove(board, depth, alphabeta):
             return move;
 
 function eval(board, move):
-    
+    val = evalPos(move.before) - evalPos(move.after)
+    val += materialDifference
+    val += evalStates(board)   //like checks, draws, checkmates
+    return val;
