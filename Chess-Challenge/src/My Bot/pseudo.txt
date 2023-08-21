@@ -1,0 +1,13 @@
+function Think(board, timer):
+    depth = EvaluateDepth(timer)
+    return GetBestMove(board, depth, alphabeta=false);
+
+
+function GetBestMove(board, depth, alphabeta):
+    for moves in board:
+        eval(move , board);
+        if isBestMove(move):
+            return move;
+
+function eval(board, move):
+    
