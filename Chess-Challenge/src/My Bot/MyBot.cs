@@ -7,6 +7,7 @@ using ChessChallenge.API;
 public class MyBot : IChessBot
 {
     private bool isWhite;
+    private long operations;
     /*
         TODO:
         Reward moves based on what position pieces are moved to     X
@@ -17,8 +18,11 @@ public class MyBot : IChessBot
     */
     public Move Think(Board board, Timer timer)
     {
+        operations = 0;
         isWhite = board.IsWhiteToMove;
-        return GetBestMove(board, 3);
+        Move bestMove = GetBestMove(board, 3);
+        Console.WriteLine("evaluations/second: " + (operations / timer.MillisecondsElapsedThisTurn * 1000));
+        return bestMove;
     }
 
     //evaluates how many points a move is worth by the pieces promoted or taken
@@ -90,6 +94,7 @@ public class MyBot : IChessBot
     }
 
     private float EvaluatePosition(Square sq, PieceType type) {
+        operations++;
         float val = 0f;
         //pieces that should be in the middle of the board
         if ((type == PieceType.Knight) || (type == PieceType.Bishop) || (type == PieceType.Queen)) {
