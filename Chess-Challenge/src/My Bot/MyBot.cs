@@ -7,6 +7,7 @@ using ChessChallenge.API;
 public class MyBot : IChessBot
 {
     private bool isWhite;
+    private float lastVal;
     private long operations;
     /*
         TODO:
@@ -154,5 +155,13 @@ public class MyBot : IChessBot
         //evaluate piece positions
         val += EvaluatePosition(move.TargetSquare, move.MovePieceType) - EvaluatePosition(move.StartSquare, move.MovePieceType);
         return val;
+    }
+
+    private int CalculateDepth(Timer timer) {
+        int t = timer.MillisecondsRemaining;
+        switch(t) {
+            case < 5000:
+                return 2;
+        }
     }
 }
