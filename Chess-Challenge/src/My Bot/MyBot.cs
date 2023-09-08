@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
@@ -6,44 +7,48 @@ public class MyBot : IChessBot
     private float lastVal;
     private int depth;
     private long operations;
-    /*
-        TODO:
-        make code more efficient
-        prioritize captures and checks -> calculate those further into the future
-    */
-    public Move Think(Board board, Timer timer)
+    public Move Think(Board board, ChessChallenge.API.Timer timer)
     {
         operations = 0;
         depth = CalculateDepth(timer);
-        Move bestMove = GetBestMove(board, depth, float.MinValue);
-        Console.WriteLine("evaluations/second: " + (operations / timer.MillisecondsElapsedThisTurn * 1000));
-        Console.WriteLine("evaluations:" + operations);
+        Move bestMove = GetBestMove(board, depth, float.NegativeInfinity);
+        if (!(operations == 0 || timer.MillisecondsElapsedThisTurn == 0)) {
+            Console.WriteLine("evaluations/second: " + (operations / timer.MillisecondsElapsedThisTurn * 1000));
+            Console.WriteLine("evaluations:" + operations);
+        }
         return bestMove;
     }
 
 
-    // returns the best legal move in the current position
-    // recursionLevel dictates how many moves into the future the bot will see
     private Move GetBestMove(Board board, int recursionDepth, float currentMaxVal) {
         Move[] moves = board.GetLegalMoves();
+        /*
+        //assign a estimated value to each move
+        float[] vals = new float[moves.Length];
+        for (int i = 0; i < vals.Length; i++) {
+            vals[i] = EstimateMove(moves[i]);
+        }
+        //sort moves by estimated value with Quicksort
+        QuickSortNow(moves, vals, 0, vals.Length - 1);
+        */
         float val;
         float maxVal = -1000;
-        Move bestMove = Move.NullMove;
+        Move bestMove = moves[0];
 
         foreach (Move move in moves) {
             val = 0;
             board.MakeMove(move);
             val = EvaluateResultingChange(board, move, board.IsWhiteToMove);
-            if (recursionDepth != 0) {
+            if (recursionDepth != 0 && !IsGameOver(board)) {
                 GetBestMove(board, recursionDepth -1, -maxVal);
                 val -= lastVal;
             }
             board.UndoMove(move);
             if (val > maxVal) {
-                //if (val > currentMaxVal) {
-                //    lastVal = val;
-                //    return move;
-                //}
+                if (val < currentMaxVal) {
+                    lastVal = val;
+                    return move;
+                }
                 bestMove = move;
                 maxVal = val;
             }
@@ -72,8 +77,6 @@ public class MyBot : IChessBot
     }
 
 
-    //add the additional value the new board has over the old one to the initial value and return it
-    //needs to be given the new board
     private float EvaluateResultingChange(Board board, Move move, bool isWhite) {
         float val = 0;
 
@@ -81,11 +84,14 @@ public class MyBot : IChessBot
             return float.MaxValue;
         }
         if (board.IsDraw()) {
-            return 0f;
+            return -0.5f;
         }
         if (board.IsInCheck()) {
-            val += 0.7f;
+            if (board.FiftyMoveCounter < 30) {
+                val += 0.7f;
+            }
         }
+
         PieceType type = PieceType.None;
         if (move.IsCapture) {
             type = move.CapturePieceType;
@@ -93,31 +99,39 @@ public class MyBot : IChessBot
         }
         if (move.IsPromotion) {
             type = move.PromotionPieceType;
-            //remove one from the final value because you "lose" a pawn
+            //pawn "loss"
             val--;
         }
-        if (type != PieceType.None) {
-            switch(type) {
-                case PieceType.Pawn:
-                    val += 1f;
-                    break;
-                case PieceType.Knight:
-                    val += 3f;
-                    break;
-                case PieceType.Bishop:
-                    val += 3f;
-                    break;
-                case PieceType.Rook:
-                    val += 5f;
-                    break;
-                case PieceType.Queen:
-                    val += 9f;
-                    break; 
-            }
-        }
+        val += GetPieceValue(type);
         //evaluate piece positions
         val += EvaluatePosition(move.TargetSquare, move.MovePieceType, isWhite) - EvaluatePosition(move.StartSquare, move.MovePieceType, isWhite);
         return val;
+    }
+
+    private float EstimateMove(Move move) {
+        if (move.IsCapture) {
+            return GetPieceValue(move.CapturePieceType);
+        }
+        return 0;
+    }
+
+    private float GetPieceValue(PieceType type) {
+        switch(type) {
+                case PieceType.Pawn:
+                    return 1f;
+                case PieceType.Knight:
+                    return 3f;
+                case PieceType.Bishop:
+                    return 3f;
+                    
+                case PieceType.Rook:
+                    return 5f;
+                    
+                case PieceType.Queen:
+                    return 9f;
+                default:
+                    return 0f;
+            }
     }
 
 
@@ -126,14 +140,65 @@ public class MyBot : IChessBot
     if > 20 and more than opponent --> 4
     else --> 3
     */
-    private int CalculateDepth(Timer timer) {
-        int t = timer.MillisecondsRemaining;
+    private int CalculateDepth(ChessChallenge.API.Timer timer) {
+        return 4;
+        /*int t = timer.MillisecondsRemaining;
         if (t < 5000) {
-            return 2;
+            return 1;
         }
-        if (t > 20000 && t > timer.OpponentMillisecondsRemaining) {
-            return 4;
+        //if (t > 20000 && t > timer.OpponentMillisecondsRemaining) {
+        //    return 3;
+        //}
+        return 2;
+        */
+    }
+
+
+    private bool IsGameOver(Board board) {
+        if (board.IsInCheckmate() || board.IsDraw()) {
+            return true;
         }
-        return 3;
+        else {
+            return false;
+        }
+    }
+
+
+    public static void QuickSortNow(Move[] moves, float[] iInput, int start, int end)
+    {
+        if (start < end)
+        {
+            int pivot = Partition(moves, iInput, start, end);
+            QuickSortNow(moves, iInput, start, pivot - 1);
+            QuickSortNow(moves, iInput, pivot + 1, end);
+        }
+    }
+
+    public static int Partition(Move[] moves, float[] iInput, int start, int end)
+    {
+        float pivot = iInput[end];
+        int pIndex = start;
+
+        for (int i = start; i < end; i++)
+        {
+            if (iInput[i] <= pivot)
+            {
+                float temp = iInput[i];
+                Move tempM = moves[i];
+
+                iInput[i] = iInput[pIndex];
+                moves[i] = moves[pIndex];
+                iInput[pIndex] = temp;
+                moves[pIndex] = tempM;
+                pIndex++;
+            }
+        }
+        float anotherTemp = iInput[pIndex];
+        Move anotherTempM = moves[pIndex];
+        iInput[pIndex] = iInput[end];
+        moves[pIndex] = moves[end];
+        iInput[end] = anotherTemp;
+        moves[end] = anotherTempM;
+        return pIndex;
     }
 }
