@@ -22,8 +22,7 @@ public class MyBot : IChessBot
 
     private Move GetBestMove(Board board, int recursionDepth, float currentMaxVal) {
         Move[] moves = board.GetLegalMoves();
-        /*
-        //assign a estimated value to each move
+        /*//assign a estimated value to each move
         float[] vals = new float[moves.Length];
         for (int i = 0; i < vals.Length; i++) {
             vals[i] = EstimateMove(moves[i]);
@@ -32,7 +31,7 @@ public class MyBot : IChessBot
         QuickSortNow(moves, vals, 0, vals.Length - 1);
         */
         float val;
-        float maxVal = -1000;
+        float maxVal = float.MinValue;
         Move bestMove = moves[0];
 
         foreach (Move move in moves) {
@@ -45,12 +44,12 @@ public class MyBot : IChessBot
             }
             board.UndoMove(move);
             if (val > maxVal) {
-                if (val < currentMaxVal) {
+                bestMove = move; 
+                maxVal = val;
+            }
+            if (val < currentMaxVal) {
                     lastVal = val;
                     return move;
-                }
-                bestMove = move;
-                maxVal = val;
             }
         }
         if (recursionDepth == depth) {
@@ -181,7 +180,7 @@ public class MyBot : IChessBot
 
         for (int i = start; i < end; i++)
         {
-            if (iInput[i] <= pivot)
+            if (iInput[i] >= pivot)
             {
                 float temp = iInput[i];
                 Move tempM = moves[i];
