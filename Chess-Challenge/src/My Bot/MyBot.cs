@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.InteropServices;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
@@ -11,7 +10,7 @@ public class MyBot : IChessBot
     {
         operations = 0;
         depth = CalculateDepth(timer);
-        Move bestMove = GetBestMove(board, depth, float.NegativeInfinity);
+        Move bestMove = GetBestMove(board, depth, float.PositiveInfinity);
         if (!(operations == 0 || timer.MillisecondsElapsedThisTurn == 0)) {
             Console.WriteLine("evaluations/second: " + (operations / timer.MillisecondsElapsedThisTurn * 1000));
             Console.WriteLine("evaluations:" + operations);
@@ -22,21 +21,23 @@ public class MyBot : IChessBot
 
     private Move GetBestMove(Board board, int recursionDepth, float currentMaxVal) {
         Move[] moves = board.GetLegalMoves();
-        /*//assign a estimated value to each move
+        //assign a estimated value to each move
         float[] vals = new float[moves.Length];
         for (int i = 0; i < vals.Length; i++) {
             vals[i] = EstimateMove(moves[i]);
         }
         //sort moves by estimated value with Quicksort
         QuickSortNow(moves, vals, 0, vals.Length - 1);
-        */
         float val;
         float maxVal = float.MinValue;
         Move bestMove = moves[0];
-
         foreach (Move move in moves) {
-            val = 0;
             board.MakeMove(move);
+            if (board.IsInCheckmate()) {
+                board.UndoMove(move);
+                lastVal = 10000 - depth * 1000;
+                return move;
+            }
             val = EvaluateResultingChange(board, move, board.IsWhiteToMove);
             if (recursionDepth != 0 && !IsGameOver(board)) {
                 GetBestMove(board, recursionDepth -1, -maxVal);
@@ -44,12 +45,12 @@ public class MyBot : IChessBot
             }
             board.UndoMove(move);
             if (val > maxVal) {
-                bestMove = move; 
-                maxVal = val;
-            }
-            if (val < currentMaxVal) {
+                if (val > currentMaxVal) {
                     lastVal = val;
                     return move;
+                }
+                bestMove = move; 
+                maxVal = val;
             }
         }
         if (recursionDepth == depth) {
@@ -62,32 +63,28 @@ public class MyBot : IChessBot
 
     private float EvaluatePosition(Square sq, PieceType type, bool isWhite) {
         operations++;
-        float val = 0f;
         //pieces that should be in the middle of the board
-        if ((type == PieceType.Knight) || (type == PieceType.Bishop) || (type == PieceType.Queen)) {
+        if ((int) type > 1 && (int) type < 6) {
             if (sq.Rank >= 3 &&  sq.File >= 3 && sq.Rank <= 6 && sq.File <= 6) {
-                val += 0.2f * ((float)type);
+                return 0.25f;
             }
         }
         if (type == PieceType.Pawn) {
-            val += isWhite ? sq.File * 0.03f : sq.File * -0-03f + 8;
+            return isWhite ? sq.File * 0.03f : sq.File * -0.3f + 8;
         }
-        return val;
+        return 0f;
     }
 
 
     private float EvaluateResultingChange(Board board, Move move, bool isWhite) {
         float val = 0;
 
-        if (board.IsInCheckmate()) {
-            return float.MaxValue;
-        }
         if (board.IsDraw()) {
             return -0.5f;
         }
         if (board.IsInCheck()) {
             if (board.FiftyMoveCounter < 30) {
-                val += 0.7f;
+                val += 0.4f;
             }
         }
 
@@ -111,7 +108,7 @@ public class MyBot : IChessBot
         if (move.IsCapture) {
             return GetPieceValue(move.CapturePieceType);
         }
-        return 0;
+        return 0f;
     }
 
     private float GetPieceValue(PieceType type) {
@@ -140,16 +137,14 @@ public class MyBot : IChessBot
     else --> 3
     */
     private int CalculateDepth(ChessChallenge.API.Timer timer) {
-        return 4;
-        /*int t = timer.MillisecondsRemaining;
+        int t = timer.MillisecondsRemaining;
         if (t < 5000) {
-            return 1;
+            return 3;
         }
-        //if (t > 20000 && t > timer.OpponentMillisecondsRemaining) {
-        //    return 3;
-        //}
-        return 2;
-        */
+        if ((t > 20000 && t > timer.OpponentMillisecondsRemaining) || t > 60000) {
+            return 5;
+        }
+        return 4;
     }
 
 
