@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
@@ -6,6 +7,23 @@ public class MyBot : IChessBot
     private float lastVal;
     private int depth;
     private long operations;
+
+    private Dictionary<PieceType, float> PieceValue;
+
+
+    public MyBot() {
+        PieceValue = new Dictionary<PieceType, float> {
+            {PieceType.Pawn, 1},
+            {PieceType.Bishop, 3},
+            {PieceType.Knight, 3},
+            {PieceType.Rook, 5},
+            {PieceType.Queen, 9},
+            {PieceType.King, 0}
+        };
+
+    }
+
+
     public Move Think(Board board, ChessChallenge.API.Timer timer)
     {
         operations = 0;
@@ -80,7 +98,7 @@ public class MyBot : IChessBot
         float val = 0;
 
         if (board.IsDraw()) {
-            return -0.5f;
+            return 0;
         }
         if (board.IsInCheck()) {
             if (board.FiftyMoveCounter < 30) {
@@ -109,6 +127,16 @@ public class MyBot : IChessBot
             return GetPieceValue(move.CapturePieceType);
         }
         return 0f;
+    }
+
+
+    private float EvaluateBoard(Board board, int isWhite) {
+        float val = 0;
+        PieceList[] pieces = board.GetAllPieceLists();
+        foreach (PieceList list in pieces) {
+            val += PieceValue[list[0].PieceType] * list.Count * (list.IsWhitePieceList ? 1 : -1);
+        }
+        return val;
     }
 
     private float GetPieceValue(PieceType type) {
