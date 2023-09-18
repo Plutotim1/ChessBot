@@ -4,23 +4,22 @@ using ChessChallenge.API;
 
 public class MyBot : IChessBot
 {
-    private float lastVal;
+    private int lastVal;
     private int depth;
     private long operations;
 
-    private Dictionary<PieceType, float> PieceValue;
+    private Dictionary<PieceType, int> PieceValue;
 
 
     public MyBot() {
-        PieceValue = new Dictionary<PieceType, float> {
-            {PieceType.Pawn, 1},
-            {PieceType.Bishop, 3},
-            {PieceType.Knight, 3},
-            {PieceType.Rook, 5},
-            {PieceType.Queen, 9},
+        PieceValue = new Dictionary<PieceType, int> {
+            {PieceType.Pawn, 100},
+            {PieceType.Bishop, 320},
+            {PieceType.Knight, 300},
+            {PieceType.Rook, 480},
+            {PieceType.Queen, 900},
             {PieceType.King, 0}
         };
-
     }
 
 
@@ -28,7 +27,7 @@ public class MyBot : IChessBot
     {
         operations = 0;
         depth = CalculateDepth(timer);
-        Move bestMove = GetBestMove(board, depth, float.PositiveInfinity);
+        Move bestMove = GetBestMove(board, depth, int.MaxValue);
         if (!(operations == 0 || timer.MillisecondsElapsedThisTurn == 0)) {
             Console.WriteLine("evaluations/second: " + (operations / timer.MillisecondsElapsedThisTurn * 1000));
             Console.WriteLine("evaluations:" + operations);
@@ -37,17 +36,17 @@ public class MyBot : IChessBot
     }
 
 
-    private Move GetBestMove(Board board, int recursionDepth, float currentMaxVal) {
+    private Move GetBestMove(Board board, int recursionDepth, int currentMaxVal) {
         Move[] moves = board.GetLegalMoves();
         //assign a estimated value to each move
-        float[] vals = new float[moves.Length];
+        int[] vals = new int[moves.Length];
         for (int i = 0; i < vals.Length; i++) {
             vals[i] = EstimateMove(moves[i]);
         }
         //sort moves by estimated value with Quicksort
         QuickSortNow(moves, vals, 0, vals.Length - 1);
-        float val;
-        float maxVal = float.MinValue;
+        int val;
+        int maxVal = int.MinValue;
         Move bestMove = moves[0];
         foreach (Move move in moves) {
             board.MakeMove(move);
@@ -79,30 +78,30 @@ public class MyBot : IChessBot
     }
 
 
-    private float EvaluatePosition(Square sq, PieceType type, bool isWhite) {
+    private int EvaluatePosition(Square sq, PieceType type, bool isWhite) {
         operations++;
         //pieces that should be in the middle of the board
         if ((int) type > 1 && (int) type < 6) {
             if (sq.Rank >= 3 &&  sq.File >= 3 && sq.Rank <= 6 && sq.File <= 6) {
-                return 0.25f;
+                return 25;
             }
         }
         if (type == PieceType.Pawn) {
-            return isWhite ? sq.File * 0.03f : sq.File * -0.3f + 8;
+            return isWhite ? sq.File * 5 : (-sq.File + 8) * 5;
         }
-        return 0f;
+        return 0;
     }
 
 
-    private float EvaluateResultingChange(Board board, Move move, bool isWhite) {
-        float val = 0;
+    private int EvaluateResultingChange(Board board, Move move, bool isWhite) {
+        int val = 0;
 
         if (board.IsDraw()) {
             return 0;
         }
         if (board.IsInCheck()) {
             if (board.FiftyMoveCounter < 30) {
-                val += 0.4f;
+                val += 40;
             }
         }
 
@@ -122,16 +121,16 @@ public class MyBot : IChessBot
         return val;
     }
 
-    private float EstimateMove(Move move) {
+    private int EstimateMove(Move move) {
         if (move.IsCapture) {
             return GetPieceValue(move.CapturePieceType);
         }
-        return 0f;
+        return 0;
     }
 
 
-    private float EvaluateBoard(Board board, int isWhite) {
-        float val = 0;
+    private int EvaluateBoard(Board board, int isWhite) {
+        int val = 0;
         PieceList[] pieces = board.GetAllPieceLists();
         foreach (PieceList list in pieces) {
             val += PieceValue[list[0].PieceType] * list.Count * (list.IsWhitePieceList ? 1 : -1);
@@ -139,22 +138,22 @@ public class MyBot : IChessBot
         return val;
     }
 
-    private float GetPieceValue(PieceType type) {
+    private int GetPieceValue(PieceType type) {
         switch(type) {
                 case PieceType.Pawn:
-                    return 1f;
+                    return 1;
                 case PieceType.Knight:
-                    return 3f;
+                    return 3;
                 case PieceType.Bishop:
-                    return 3f;
+                    return 3;
                     
                 case PieceType.Rook:
-                    return 5f;
+                    return 5;
                     
                 case PieceType.Queen:
-                    return 9f;
+                    return 9;
                 default:
-                    return 0f;
+                    return 0;
             }
     }
 
@@ -186,7 +185,7 @@ public class MyBot : IChessBot
     }
 
 
-    public static void QuickSortNow(Move[] moves, float[] iInput, int start, int end)
+    public static void QuickSortNow(Move[] moves, int[] iInput, int start, int end)
     {
         if (start < end)
         {
@@ -196,16 +195,16 @@ public class MyBot : IChessBot
         }
     }
 
-    public static int Partition(Move[] moves, float[] iInput, int start, int end)
+    public static int Partition(Move[] moves, int[] iInput, int start, int end)
     {
-        float pivot = iInput[end];
+        int pivot = iInput[end];
         int pIndex = start;
 
         for (int i = start; i < end; i++)
         {
             if (iInput[i] >= pivot)
             {
-                float temp = iInput[i];
+                int temp = iInput[i];
                 Move tempM = moves[i];
 
                 iInput[i] = iInput[pIndex];
@@ -215,7 +214,7 @@ public class MyBot : IChessBot
                 pIndex++;
             }
         }
-        float anotherTemp = iInput[pIndex];
+        int anotherTemp = iInput[pIndex];
         Move anotherTempM = moves[pIndex];
         iInput[pIndex] = iInput[end];
         moves[pIndex] = moves[end];
