@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
@@ -8,7 +9,9 @@ public class MyBot : IChessBot
     private int depth;
     private long operations;
 
-    private Dictionary<PieceType, int> PieceValue;
+    private bool isWhite;
+
+    private readonly Dictionary<PieceType, int> PieceValue;
 
 
     public MyBot() {
@@ -18,7 +21,8 @@ public class MyBot : IChessBot
             {PieceType.Knight, 300},
             {PieceType.Rook, 480},
             {PieceType.Queen, 900},
-            {PieceType.King, 0}
+            {PieceType.King, 0},
+            {PieceType.None, 0}
         };
     }
 
@@ -26,8 +30,9 @@ public class MyBot : IChessBot
     public Move Think(Board board, ChessChallenge.API.Timer timer)
     {
         operations = 0;
+        isWhite = board.IsWhiteToMove;
         depth = CalculateDepth(timer);
-        Move bestMove = GetBestMove(board, depth, int.MaxValue);
+        Move bestMove = GetBestMove(board, depth, 1000000);
         if (!(operations == 0 || timer.MillisecondsElapsedThisTurn == 0)) {
             Console.WriteLine("evaluations/second: " + (operations / timer.MillisecondsElapsedThisTurn * 1000));
             Console.WriteLine("evaluations:" + operations);
@@ -61,11 +66,11 @@ public class MyBot : IChessBot
                 val -= lastVal;
             }
             board.UndoMove(move);
+            //if (val > currentMaxVal) {
+            //        lastVal = val;
+            //        return move;
+            //    }
             if (val > maxVal) {
-                if (val > currentMaxVal) {
-                    lastVal = val;
-                    return move;
-                }
                 bestMove = move; 
                 maxVal = val;
             }
@@ -104,18 +109,15 @@ public class MyBot : IChessBot
                 val += 40;
             }
         }
-
-        PieceType type = PieceType.None;
         if (move.IsCapture) {
-            type = move.CapturePieceType;
+            val += PieceValue[move.CapturePieceType];
             val += EvaluatePosition(move.TargetSquare, move.CapturePieceType, isWhite);
         }
         if (move.IsPromotion) {
-            type = move.PromotionPieceType;
+            val += PieceValue[move.PromotionPieceType];
             //pawn "loss"
             val--;
         }
-        val += GetPieceValue(type);
         //evaluate piece positions
         val += EvaluatePosition(move.TargetSquare, move.MovePieceType, isWhite) - EvaluatePosition(move.StartSquare, move.MovePieceType, isWhite);
         return val;
@@ -123,38 +125,19 @@ public class MyBot : IChessBot
 
     private int EstimateMove(Move move) {
         if (move.IsCapture) {
-            return GetPieceValue(move.CapturePieceType);
+            return PieceValue[move.CapturePieceType];
         }
         return 0;
     }
 
 
-    private int EvaluateBoard(Board board, int isWhite) {
+    private int EvaluateBoard(Board board) {
         int val = 0;
         PieceList[] pieces = board.GetAllPieceLists();
         foreach (PieceList list in pieces) {
             val += PieceValue[list[0].PieceType] * list.Count * (list.IsWhitePieceList ? 1 : -1);
         }
-        return val;
-    }
-
-    private int GetPieceValue(PieceType type) {
-        switch(type) {
-                case PieceType.Pawn:
-                    return 1;
-                case PieceType.Knight:
-                    return 3;
-                case PieceType.Bishop:
-                    return 3;
-                    
-                case PieceType.Rook:
-                    return 5;
-                    
-                case PieceType.Queen:
-                    return 9;
-                default:
-                    return 0;
-            }
+        return isWhite ? val : -val;
     }
 
 
@@ -164,6 +147,7 @@ public class MyBot : IChessBot
     else --> 3
     */
     private int CalculateDepth(ChessChallenge.API.Timer timer) {
+        return 3;
         int t = timer.MillisecondsRemaining;
         if (t < 5000) {
             return 3;
