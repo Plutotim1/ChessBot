@@ -6,10 +6,8 @@ public class MyBot : IChessBot
 {
     private int lastVal;
     private int depth;
-    private long operations;
-
+    private bool isEndgame;
     private bool isWhite;
-
     private readonly Dictionary<PieceType, int> PieceValue;
 
 
@@ -28,14 +26,10 @@ public class MyBot : IChessBot
 
     public Move Think(Board board, ChessChallenge.API.Timer timer)
     {
-        operations = 0;
         isWhite = board.IsWhiteToMove;
-        depth = CalculateDepth(timer);
-        Move bestMove = GetBestMove(board, depth, -1000000, 1000000);
-        if (!(operations == 0 || timer.MillisecondsElapsedThisTurn == 0)) {
-            Console.WriteLine("evaluations/second: " + (operations / timer.MillisecondsElapsedThisTurn * 1000));
-            Console.WriteLine("evaluations:" + operations);
-        }
+        isEndgame = EvaluateTotalBoardMaterial(board) < 3000 ? true : false;
+        Console.WriteLine(EvaluateTotalBoardMaterial(board));
+        Move bestMove = GetBestMove(board, CalculateDepth(timer), -1000000, 1000000);
         return bestMove;
     }
 
@@ -71,7 +65,7 @@ public class MyBot : IChessBot
 
             //evaluate board and subtract the opponents best move afterwards
             val = EvaluateResultingChange(board, move, board.IsWhiteToMove);
-            if (recursionDepth != 0 && !IsGameOver(board)) {
+            if (recursionDepth != 0 && board.IsDraw()) {
                 GetBestMove(board, recursionDepth - 1, -beta, -alpha);
                 val -= lastVal;
             }
@@ -90,11 +84,6 @@ public class MyBot : IChessBot
             }
         }
 
-        //debugging
-        if (recursionDepth == depth) {
-            Console.WriteLine(maxVal);
-        }
-
         //return value and move
         lastVal =  maxVal;
         return bestMove;
@@ -102,13 +91,11 @@ public class MyBot : IChessBot
 
 
     private int EvaluatePosition(Square sq, PieceType type, bool isWhite) {
-        //measuring
-        operations++;
 
         //pieces that should be in the middle of the board
-        if ((int) type > 1 && (int) type < 6) {
+        if (((int) type > 1 && (int) type < 6) || (int) type ==  6 && isEndgame) {
             if (sq.Rank >= 3 &&  sq.File >= 3 && sq.Rank <= 6 && sq.File <= 6) {
-                return 25;
+                return 10 * (int) type;
             }
         }
 
@@ -140,6 +127,9 @@ public class MyBot : IChessBot
             //pawn "loss"
             val--;
         }
+        if (move.IsCastles) {
+            val += 50;
+        }
         //evaluate piece positions
         val += EvaluatePosition(move.TargetSquare, move.MovePieceType, isWhite) - EvaluatePosition(move.StartSquare, move.MovePieceType, isWhite);
         return val;
@@ -153,41 +143,20 @@ public class MyBot : IChessBot
     }
 
 
-    private int EvaluateBoard(Board board) {
-        operations++;
-        int val = 0;
-        PieceList[] pieces = board.GetAllPieceLists();
-        foreach (PieceList list in pieces) {
-            val += PieceValue[list[0].PieceType] * list.Count * (list.IsWhitePieceList ? 1 : -1);
-        }
-        return isWhite ? val : -val;
-    }
-
-
     /*
     < 5 seconds --> 2
     if > 20 and more than opponent --> 4
     else --> 3
     */
     private int CalculateDepth(ChessChallenge.API.Timer timer) {
-        int t = timer.MillisecondsRemaining;
-        if (t < 5000) {
-            return 3;
-        }
-        if ((t > 20000 && t > timer.OpponentMillisecondsRemaining) || t > 60000) {
+        int t = timer.MillisecondsRemaining / 40;
+        if (t > 5000) {
             return 5;
         }
-        return 4;
-    }
-
-
-    private bool IsGameOver(Board board) {
-        if (board.IsInCheckmate() || board.IsDraw()) {
-            return true;
+        if (t > 1000) {
+            return 4;
         }
-        else {
-            return false;
-        }
+        return 3;
     }
 
 
@@ -227,5 +196,15 @@ public class MyBot : IChessBot
         iInput[end] = anotherTemp;
         moves[end] = anotherTempM;
         return pIndex;
+    }
+
+
+    public int EvaluateTotalBoardMaterial(Board board) {
+        int val = 0;
+        PieceList[] pieces = board.GetAllPieceLists();
+        foreach (PieceList list in pieces) {
+            val += PieceValue[list[0].PieceType] * list.Count;
+        }
+        return val;
     }
 }
