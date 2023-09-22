@@ -65,7 +65,7 @@ public class MyBot : IChessBot
 
             //evaluate board and subtract the opponents best move afterwards
             val = EvaluateResultingChange(board, move, board.IsWhiteToMove);
-            if (recursionDepth != 0 && board.IsDraw()) {
+            if (recursionDepth != 0 && !board.IsDraw()) {
                 GetBestMove(board, recursionDepth - 1, -beta, -alpha);
                 val -= lastVal;
             }
@@ -93,7 +93,7 @@ public class MyBot : IChessBot
     private int EvaluatePosition(Square sq, PieceType type, bool isWhite) {
 
         //pieces that should be in the middle of the board
-        if (((int) type > 1 && (int) type < 6) || (int) type ==  6 && isEndgame) {
+        if (((int) type <= 3) || ((int) type ==  6 && isEndgame)) {
             if (sq.Rank >= 3 &&  sq.File >= 3 && sq.Rank <= 6 && sq.File <= 6) {
                 return 10 * (int) type;
             }
