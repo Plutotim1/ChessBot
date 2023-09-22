@@ -101,7 +101,8 @@ public class MyBot : IChessBot
 
         //pawns
         if (type == PieceType.Pawn) {
-            return isWhite ? sq.File * 5 : (-sq.File + 8) * 5;
+            int bonus = isEndgame ? 3 : 1;
+            return isWhite ? sq.File * 5 * bonus : (-sq.File + 8) * 5 * bonus;
         }
         return 0;
     }
