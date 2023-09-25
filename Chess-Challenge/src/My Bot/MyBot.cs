@@ -5,7 +5,6 @@ using ChessChallenge.API;
 public class MyBot : IChessBot
 {
     private int lastVal;
-    private int depth;
     private bool isEndgame;
     private bool isWhite;
     private readonly Dictionary<PieceType, int> PieceValue;
@@ -28,7 +27,6 @@ public class MyBot : IChessBot
     {
         isWhite = board.IsWhiteToMove;
         isEndgame = EvaluateTotalBoardMaterial(board) < 3000 ? true : false;
-        Console.WriteLine(EvaluateTotalBoardMaterial(board));
         Move bestMove = GetBestMove(board, CalculateDepth(timer), -1000000, 1000000);
         return bestMove;
     }
@@ -36,7 +34,7 @@ public class MyBot : IChessBot
 
     private Move GetBestMove(Board board, int recursionDepth, int alpha, int beta) {
         Move[] moves = board.GetLegalMoves();
-
+        
         //assign a estimated value to each move
         int[] vals = new int[moves.Length];
         for (int i = 0; i < vals.Length; i++) {
@@ -45,7 +43,7 @@ public class MyBot : IChessBot
 
         //sort moves by estimated value with Quicksort
         QuickSortNow(moves, vals, 0, vals.Length - 1);
-
+        
         //initialize variables
         int val;
         int maxVal = int.MinValue;
@@ -59,7 +57,7 @@ public class MyBot : IChessBot
             //instantly return value if a checkmate is found
             if (board.IsInCheckmate()) {
                 board.UndoMove(move);
-                lastVal = 10000 - depth * 1000;
+                lastVal = 5000 + recursionDepth * 1000;
                 return move;
             }
 
@@ -90,6 +88,9 @@ public class MyBot : IChessBot
     }
 
 
+
+
+
     private int EvaluatePosition(Square sq, PieceType type, bool isWhite) {
 
         //pieces that should be in the middle of the board
@@ -112,7 +113,7 @@ public class MyBot : IChessBot
         int val = 0;
 
         if (board.IsDraw()) {
-            return 0;
+            return -50;
         }
         if (board.IsInCheck()) {
             if (board.FiftyMoveCounter < 30) {
@@ -137,10 +138,7 @@ public class MyBot : IChessBot
     }
 
     private int EstimateMove(Move move) {
-        if (move.IsCapture) {
             return PieceValue[move.CapturePieceType];
-        }
-        return 0;
     }
 
 
@@ -197,6 +195,16 @@ public class MyBot : IChessBot
         iInput[end] = anotherTemp;
         moves[end] = anotherTempM;
         return pIndex;
+    }
+
+
+    public int EvaluateBoardMaterial(Board board) {
+        int val = 0;
+        PieceList[] pieces = board.GetAllPieceLists();
+        foreach (PieceList list in pieces) {
+            val += PieceValue[list[0].PieceType] * list.Count * (list.IsWhitePieceList ? 1 : -1);
+        }
+        return val;
     }
 
 
