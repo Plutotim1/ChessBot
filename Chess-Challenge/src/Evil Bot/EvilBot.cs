@@ -1,210 +1,111 @@
-﻿using ChessChallenge.API;
+﻿﻿using ChessChallenge.API;
 using System;
 using System.Collections.Generic;
 
-namespace ChessChallenge.Example
+
+public class EvilBot : IChessBot
 {
-    // Bot without endgamer optimizations
-    public class EvilBot : IChessBot
+    int Depth = 4;
+    Dictionary<PieceType, int> pieceValues = new Dictionary<PieceType, int>()
     {
-        private int lastVal;
-    private bool isWhite;
-    private readonly Dictionary<PieceType, int> PieceValue;
-
-
-    public EvilBot() {
-        PieceValue = new Dictionary<PieceType, int> {
-            {PieceType.Pawn, 100},
-            {PieceType.Bishop, 320},
-            {PieceType.Knight, 300},
-            {PieceType.Rook, 480},
-            {PieceType.Queen, 900},
-            {PieceType.King, 0},
-            {PieceType.None, 0}
-        };
-    }
-
-
-    public Move Think(Board board, ChessChallenge.API.Timer timer)
+        {PieceType.None, 0 },
+        {PieceType.Pawn, 100},
+        {PieceType.Knight, 300},
+        {PieceType.Bishop, 300},
+        {PieceType.Rook, 500},
+        {PieceType.Queen, 900},
+        {PieceType.King, 10000}
+    };
+    List<Move> bestEquallMoves = new List<Move>();
+    int bestEquallScore;
+    public Move Think(Board board, Timer timer)
     {
-        isWhite = board.IsWhiteToMove;
-        Move bestMove = GetBestMove(board, CalculateDepth(timer), -1000000, 1000000);
-        return bestMove;
-    }
+        Move[] allmoves = board.GetLegalMoves();
+        Move bestMove = allmoves[0];
 
-
-    private Move GetBestMove(Board board, int recursionDepth, int alpha, int beta) {
-        Move[] moves = board.GetLegalMoves();
-
-        //assign a estimated value to each move
-        int[] vals = new int[moves.Length];
-        for (int i = 0; i < vals.Length; i++) {
-            vals[i] = EstimateMove(moves[i]);
-        }
-
-        //sort moves by estimated value with Quicksort
-        QuickSortNow(moves, vals, 0, vals.Length - 1);
-
-        //initialize variables
-        int val;
-        int maxVal = int.MinValue;
-        Move bestMove = moves[0];
-
-        //loop over moves
-        foreach (Move move in moves) {
-            board.MakeMove(move);
-
-            
-            //instantly return value if a checkmate is found
-            if (board.IsInCheckmate()) {
-                board.UndoMove(move);
-                lastVal = 5000 + recursionDepth * 1000;
-                return move;
-            }
-
-            //evaluate board and subtract the opponents best move afterwards
-            val = EvaluateResultingChange(board, move, board.IsWhiteToMove);
-            if (recursionDepth != 0 && !board.IsDraw()) {
-                GetBestMove(board, recursionDepth - 1, -beta, -alpha);
-                val -= lastVal;
-            }
-            board.UndoMove(move);
-
-            alpha = Math.Max(alpha, val);
-            
-            //check if the move is the best move until now
-            if (val > maxVal) {
-                bestMove = move;
-                maxVal = val;
-            }
-
-            if (alpha > beta) {
-                break;
-            }
-        }
-
-        //return value and move
-        lastVal =  maxVal;
-        return bestMove;
-    }
-
-
-    private int EvaluatePosition(Square sq, PieceType type, bool isWhite) {
-
-        //pieces that should be in the middle of the board
-        if ((int) type <= 3) {
-            if (sq.Rank >= 3 &&  sq.File >= 3 && sq.Rank <= 6 && sq.File <= 6) {
-                return 10 * (int) type;
-            }
-        }
-
-        //pawns
-        if (type == PieceType.Pawn) {
-            return isWhite ? sq.File * 5: (-sq.File + 8) * 5;
-        }
-        return 0;
-    }
-
-
-    private int EvaluateResultingChange(Board board, Move move, bool isWhite) {
-        int val = 0;
-
-        if (board.IsDraw()) {
-            return 0;
-        }
-        if (board.IsInCheck()) {
-            if (board.FiftyMoveCounter < 30) {
-                val += 40;
-            }
-        }
-        if (move.IsCapture) {
-            val += PieceValue[move.CapturePieceType];
-            val += EvaluatePosition(move.TargetSquare, move.CapturePieceType, isWhite);
-        }
-        if (move.IsPromotion) {
-            val += PieceValue[move.PromotionPieceType];
-            //pawn "loss"
-            val--;
-        }
-        if (move.IsCastles) {
-            val += 50;
-        }
-        //evaluate piece positions
-        val += EvaluatePosition(move.TargetSquare, move.MovePieceType, isWhite) - EvaluatePosition(move.StartSquare, move.MovePieceType, isWhite);
-        return val;
-    }
-
-    private int EstimateMove(Move move) {
-        if (move.IsCapture) {
-            return PieceValue[move.CapturePieceType];
-        }
-        return 0;
-    }
-
-
-    /*
-    < 5 seconds --> 2
-    if > 20 and more than opponent --> 4
-    else --> 3
-    */
-    private int CalculateDepth(ChessChallenge.API.Timer timer) {
-        int t = timer.MillisecondsRemaining / 40;
-        if (t > 5000) {
-            return 5;
-        }
-        if (t > 1000) {
-            return 4;
-        }
-        return 3;
-    }
-
-
-    public static void QuickSortNow(Move[] moves, int[] iInput, int start, int end)
-    {
-        if (start < end)
+        foreach (Move move in allmoves)
         {
-            int pivot = Partition(moves, iInput, start, end);
-            QuickSortNow(moves, iInput, start, pivot - 1);
-            QuickSortNow(moves, iInput, pivot + 1, end);
-        }
-    }
+            int score = GetScoreToDepth(board, move, Depth, 1);
+            Console.WriteLine("Think; score={0}", score);
 
-    public static int Partition(Move[] moves, int[] iInput, int start, int end)
-    {
-        int pivot = iInput[end];
-        int pIndex = start;
-
-        for (int i = start; i < end; i++)
-        {
-            if (iInput[i] >= pivot)
+            if (score > bestEquallScore)
             {
-                int temp = iInput[i];
-                Move tempM = moves[i];
-
-                iInput[i] = iInput[pIndex];
-                moves[i] = moves[pIndex];
-                iInput[pIndex] = temp;
-                moves[pIndex] = tempM;
-                pIndex++;
+                bestEquallScore = score;
+                bestEquallMoves.Clear();
+                bestEquallMoves.Add(move);
+            }
+            else if (score == bestEquallScore)
+            {
+                bestEquallScore = score;
+                bestEquallMoves.Add(move);
             }
         }
-        int anotherTemp = iInput[pIndex];
-        Move anotherTempM = moves[pIndex];
-        iInput[pIndex] = iInput[end];
-        moves[pIndex] = moves[end];
-        iInput[end] = anotherTemp;
-        moves[end] = anotherTempM;
-        return pIndex;
+        Random rng = new();
+        Move moveToPlay = bestEquallMoves[rng.Next(bestEquallMoves.Count)];
+        bestEquallMoves.Clear();
+        bestEquallScore = 0;
+        return moveToPlay;
     }
+    /// <summary>
+    /// Gets combined score after taking into account possible future moves.
+    /// </summary>
+    int GetScoreToDepth(Board board, Move move, int recursionDepth, int isMe)
+    {
+        // Console.WriteLine("  GetScoreToDepth; depth={0}, isMe={1}", recursionDepth, isMe);
+        int thisMoveScore = moveScore(move, board, isMe, recursionDepth);
 
-
-    public int EvaluateTotalBoardMaterial(Board board) {
-        int val = 0;
-        PieceList[] pieces = board.GetAllPieceLists();
-        foreach (PieceList list in pieces) {
-            val += PieceValue[list[0].PieceType] * list.Count;
+        if (recursionDepth == 1)
+        {
+            return thisMoveScore;
         }
-        return val;
+
+        int bestNextScore = 0;
+        board.MakeMove(move);
+        Move[] allmoves = board.GetLegalMoves();
+        foreach (Move nextMove in allmoves)
+        {
+            int nextScore = GetScoreToDepth(board, nextMove, recursionDepth - 1, isMe * -1);
+
+            if (isMe == 1)
+            {
+                if (nextScore > bestNextScore)
+                {
+                    bestNextScore = nextScore;
+                }
+            }
+            else
+            {
+                if (nextScore < bestNextScore)
+                {
+                    bestNextScore = nextScore;
+                }
+            }
+        }
+        board.UndoMove(move);
+
+
+        int combinedScore = thisMoveScore + bestNextScore;
+        // Console.WriteLine("  GetScoreToDepth; depth={0}, combinedScore={1}", recursionDepth, combinedScore);
+        return combinedScore;
     }
+
+    int moveScore(Move move, Board board, int isMe, int recursionDepth)
+    {
+        Piece capturedPiece = board.GetPiece(move.TargetSquare);
+        int capturedPieceValue = pieceValues[capturedPiece.PieceType];
+        int checkmateValue = 0;
+        if (MoveIsCheckmate(board, move))
+        {
+            checkmateValue = 100000 + 1000 * recursionDepth;
+        }
+        return (checkmateValue + capturedPieceValue) * isMe;
+    }
+
+    bool MoveIsCheckmate(Board board, Move move)
+    {
+        board.MakeMove(move);
+        bool isMate = board.IsInCheckmate();
+        board.UndoMove(move);
+        return isMate;
     }
 }
